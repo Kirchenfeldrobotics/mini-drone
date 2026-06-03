@@ -1,20 +1,17 @@
 {
     "name": "ESP-IDF",
     "build": {
-        "dockerfile": "Dockerfile",
-        "args": {
-            "DOCKER_TAG": "v5.5.4"
-        }
+        "dockerfile": "Dockerfile"
     },
     "overrideCommand": true,
     "customizations": {
         "vscode": {
             "settings": {
                 "terminal.integrated.defaultProfile.linux": "bash",
-                "idf.espIdfPath": "/opt/esp/idf",
+                "idf.showOnboardingOnInit": false,
                 "idf.toolsPath": "/opt/esp",
-                "idf.gitPath": "/usr/bin/git",
-                "idf.showOnboardingOnInit": false
+                "idf.espIdfPath": "/opt/esp/idf",
+                "idf.gitPath": "/usr/bin/git"
             },
             "extensions": [
                 "espressif.esp-idf-extension",
