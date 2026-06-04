@@ -27,23 +27,23 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         ESP_LOGI(TAG, "Connecting to Wifi..."); 
         ret = esp_wifi_connect(); 
-        if (ret != ESP_OK) ESP_LOGE(TAG, "Faild to connect to Wifi: %e.", ret); 
+        if (ret != ESP_OK) ESP_LOGE(TAG, "Faild to connect to Wifi: %s.", esp_err_to_name(ret)); 
         else ESP_LOGI(TAG, "Wifi connected."); 
     // Esp lost connection ==> Attempt to reconnect
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGW(TAG, "Wifi disconnected. Attempting to reconnect... (%d)", s_retry_num + 1); 
         if (s_retry_num < MAX_RETRY) {
             ret = esp_wifi_connect(); 
-            if (ret != ESP_OK) ESP_LOGE(TAG, "Reconnect to wifi failed: %e.", ret); 
+            if (ret != ESP_OK) ESP_LOGE(TAG, "Reconnect to wifi failed: %s.", esp_err_to_name(ret)); 
             else ESP_LOGI(TAG, "Wifi reconnected."); 
         } else {
             ESP_LOGE(TAG, "Too many reconnection attempts: Wifi connection failed."); 
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT); 
         }   
     // Esp got an IP-addr ==> Set connected bit and print ip info 
-    } else if (event_base == IP_EVENT, event_id == IP_EVENT_STA_GOT_IP) {
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data; 
-        ESP_LOGI(TAG, "Received IP: %s, %s", IPSTR, IP2STR(&event->ip_info.ip)); 
+        ESP_LOGI(TAG, "Received IP: " IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0; 
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT); 
     }
@@ -66,6 +66,9 @@ void wifi_init_sta(const char *ssid, const char *password) {
 
     // Init wifi driver
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT(); 
+    ret = esp_wifi_init(&cfg);
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to initialize wifi driver: %s", esp_err_to_name(ret)); 
+    else ESP_LOGI(TAG, "Wifi driver initialized."); 
 
     // Register event handlers
     esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL); 
@@ -78,15 +81,15 @@ void wifi_init_sta(const char *ssid, const char *password) {
 
     // Set wifi mode & config
     ret = esp_wifi_set_mode(WIFI_MODE_STA); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to set Wifi mode to STA: %e.", ret); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to set Wifi mode to STA: %s.", esp_err_to_name(ret)); 
     else ESP_LOGI(TAG, "Wifi mode set to STA."); 
     ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to set Wifi config: %e.", ret); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to set Wifi config: %s.", esp_err_to_name(ret)); 
     else ESP_LOGI(TAG, "Wifi config set."); 
 
     // Start wifi driver 
     ret = esp_wifi_start(); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to start Wifi driver: %e.", ret); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to start Wifi driver: %s.", esp_err_to_name(ret)); 
     else ESP_LOGI(TAG, "Successfully started wifi driver."); 
 
     // Wait for connection 

@@ -8,8 +8,6 @@
 #include "./include/wifi_credentials.hpp"  
 #include "utils.hpp"
 
-#define LED_PIN GPIO_NUM_2 
-
 static const char *TAG = "MAIN"; 
 
 // Init Non-Volatile storage

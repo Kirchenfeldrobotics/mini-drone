@@ -3,6 +3,8 @@
 #include "esp_log.h"   
 #include "driver/gpio.h" 
 
+#define LED_PIN GPIO_NUM_2 
+
 // LED blink task 
 void blink_task(void *pvParameters) {
     gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
