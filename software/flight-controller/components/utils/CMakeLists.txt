@@ -1,5 +1,5 @@
 idf_component_register(
     SRCS "utils.cpp"
     INCLUDE_DIRS "include"
-    REQUIRES esp_driver_gpio
+    REQUIRES esp_driver_gpio flight_types
 )

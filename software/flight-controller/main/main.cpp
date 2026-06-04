@@ -7,6 +7,7 @@
 #include "wifi.hpp"
 #include "./include/wifi_credentials.hpp"  
 #include "utils.hpp"
+#include "mpu6050.hpp"
 
 static const char *TAG = "MAIN"; 
 
@@ -45,7 +46,7 @@ extern "C" void app_main(void) {
     // Establish wifi connection 
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD); 
 
-    // Start blinking LED task
-    xTaskCreate(blink_task, "blink", 2048, nullptr, 5, nullptr); 
+    // Read from MPU 
+    xTaskCreatePinnedToCore(mpu6050_task, "mpu6050 task", 4096, nullptr, 10, nullptr, 1); 
 
 }

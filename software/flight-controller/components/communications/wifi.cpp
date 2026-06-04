@@ -5,7 +5,10 @@
 #include "esp_event.h"
 #include "esp_wifi.h"
 #include "utils.hpp"
+#include "driver/gpio.h"
+#include "flight_types.hpp"
 
+#define LED_PIN GPIO_NUM_2
 
 static EventGroupHandle_t s_wifi_event_group; 
 #define WIFI_CONNECTED_BIT BIT0
@@ -31,7 +34,8 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
         else ESP_LOGI(TAG, "Wifi connected."); 
     // Esp lost connection ==> Attempt to reconnect
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        ESP_LOGW(TAG, "Wifi disconnected. Attempting to reconnect... (%d)", s_retry_num + 1); 
+        wifi_event_sta_disconnected_t *d = (wifi_event_sta_disconnected_t *) event_data; 
+        ESP_LOGW(TAG, "Wifi disconnected: %d. Attempting to reconnect... (%d)", d->reason, s_retry_num + 1); 
         if (s_retry_num < MAX_RETRY) {
             ret = esp_wifi_connect(); 
             if (ret != ESP_OK) ESP_LOGE(TAG, "Reconnect to wifi failed: %s.", esp_err_to_name(ret)); 
@@ -52,8 +56,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 void wifi_init_sta(const char *ssid, const char *password) {
     // Blink LED while connecting
     TaskHandle_t blink_task_handle = NULL; 
+    BlinkPattern blink_pattern = LED_WAITING; 
     
-    xTaskCreate(blink_task, "blink", 2048, nullptr, 5, &blink_task_handle); 
+    xTaskCreatePinnedToCore(blink_task, "blink", 2048, &blink_pattern, 5, &blink_task_handle, 0); 
     
     esp_err_t ret; 
     
@@ -100,6 +105,7 @@ void wifi_init_sta(const char *ssid, const char *password) {
     else ESP_LOGE(TAG, "Wifi connection couldn't be established."); 
 
     vTaskDelete(blink_task_handle); 
+    gpio_set_level(LED_PIN, 0); 
 }
 
 
