@@ -2,6 +2,9 @@
 #include "freertos/task.h"  
 #include "esp_log.h"   
 #include "driver/i2c_master.h"
+#include "esp_timer.h"
+#include "./include/mpu6050.hpp"
+#include "cmath"
 
 static const char* TAG = "MPU"; 
 
@@ -19,6 +22,7 @@ static const char* TAG = "MPU";
 
 #define GYRO_CONV              500/32768.f 
 #define ACCEL_CONV             4/32768.f 
+#define RAD_TO_DEG             180/M_PI
 
 #define LOG_DATA               true
 
@@ -80,6 +84,9 @@ esp_err_t mpu_read(MpuData *out) {
 // Init mpu 
 void init_mpu() {
     esp_err_t ret; 
+
+    // Create queue for com with attitude 
+    s_mpu_data_queue = xQueueCreate(1, sizeof(DroneAngles)); 
     
     // bus config 
     i2c_master_bus_config_t bus_config = {}; 
@@ -125,21 +132,37 @@ void init_mpu() {
 }
 
 void mpu6050_task(void *pvParameters) {
-    // Initialize mpu
     init_mpu(); 
 
+    DroneAngles outData = {}; 
+
+    uint64_t last_time = 0; 
+    uint64_t now       = 0; 
+    float delta_t      = 0; 
+
     TickType_t last_wake_time = xTaskGetTickCount(); 
-    const TickType_t period   = pdTICKS_TO_MS(100); 
+    const TickType_t period   = pdMS_TO_TICKS(100); 
 
     while (true) {
         vTaskDelayUntil(&last_wake_time, period); 
         
         MpuData data; 
+        
         if (mpu_read(&data) == ESP_OK) {
-            // Comm 
-#if LOG_DATA 
-            ESP_LOGI(TAG, "Acc: %.2f %.2f %.2f g   Gyro: %.1f %.1f %.1f deg/s", data.accel_x, data.accel_y, data.accel_z, data.gyro_x,  data.gyro_y,  data.gyro_z);
-#endif
+            now = esp_timer_get_time(); 
+            delta_t = (now - last_time) / 1.0e6f; 
+            last_time = now; 
+
+            float accel_pitch = atan2f(data.accel_x, sqrtf(data.accel_y * data.accel_y + data.accel_z * data.accel_z)) * RAD_TO_DEG; 
+            float accel_roll = atan2f(data.accel_y, sqrtf(data.accel_x * data.accel_x + data.accel_z * data.accel_z)) * RAD_TO_DEG;   
+              
+            outData.pitch = 0.98f * (outData.pitch + data.gyro_x * delta_t) + 0.02f * accel_pitch; 
+            outData.roll = 0.98f * (outData.roll + data.gyro_y * delta_t) + 0.02f * accel_roll; 
+            outData.yaw = data.gyro_z;
+            outData.delta_t = delta_t; 
+            
+            xQueueSend(s_mpu_data_queue, &outData, 0);  
+
         } else {
             ESP_LOGW(TAG, "MPU read failed."); 
         }
