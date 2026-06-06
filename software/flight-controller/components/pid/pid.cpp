@@ -19,13 +19,17 @@
 
 #define I_LIMIT 50.f
 
-static const char* TAG = "PID"; 
+QueueHandle_t s_pid_data_queue = nullptr;
+
+static const char* TAG = "PID";
 
 struct ValuePair {
     float pitch, roll, yaw; 
 }; 
 
 void pid_task(void *pvParameters) {
+    xEventGroupWaitBits(s_startup_event_group, MPU_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
+    
     DroneAngles data = {}; 
     PID outData      = {}; 
     

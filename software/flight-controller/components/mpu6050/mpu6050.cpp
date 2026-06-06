@@ -33,8 +33,10 @@ struct MpuData {
 }; 
 
 
-static i2c_master_bus_handle_t s_bus_handle; 
-static i2c_master_dev_handle_t s_mpu_handle; 
+QueueHandle_t s_mpu_data_queue = nullptr;
+
+static i2c_master_bus_handle_t s_bus_handle;
+static i2c_master_dev_handle_t s_mpu_handle;
 
 // Read single byte from mpu 
 esp_err_t mpu_read_byte(uint8_t reg, uint8_t *out) {
@@ -135,6 +137,8 @@ void init_mpu() {
 }
 
 void mpu6050_task(void *pvParameters) {
+    xEventGroupWaitBits(s_startup_event_group, UDP_SERVER_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
+    
     init_mpu(); 
 
     DroneAngles outData = {}; 

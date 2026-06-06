@@ -1,9 +1,11 @@
+#pragma once
+
 enum BlinkPattern {
     LED_BLINKING, 
     LED_WAITING,
 }; 
 
-static EventGroupHandle_t s_startup_event_group; 
+extern EventGroupHandle_t s_startup_event_group;
 #define WIFI_READY_BIT       BIT0
 #define UDP_SERVER_READY_BIT BIT1
 #define MPU_READY_BIT        BIT2

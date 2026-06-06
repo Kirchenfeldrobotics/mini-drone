@@ -11,8 +11,11 @@
 #include "pid.hpp"
 #include "comms.hpp"
 #include "flight_types.hpp"
+#include "dshot.hpp"
 
-static const char *TAG = "MAIN"; 
+static const char *TAG = "MAIN";
+
+EventGroupHandle_t s_startup_event_group;
 
 
 // Init Non-Volatile storage
@@ -38,6 +41,9 @@ extern "C" void app_main(void) {
     s_mpu_data_queue = xQueueCreate(1, sizeof(DroneAngles)); 
     s_pid_data_queue = xQueueCreate(1, sizeof(PID)); 
     s_target_angles_mutex = xSemaphoreCreateMutex();
+
+    // Create start-up event group: 
+    s_startup_event_group = xEventGroupCreate(); 
     
     // Init nvs
     init_nvs(); 
@@ -52,30 +58,23 @@ extern "C" void app_main(void) {
     if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to create default event loop: %e.", ret); 
     else ESP_LOGI(TAG, "Created default event loop."); 
 
-    // Create start-up event group: 
-    s_startup_event_group = xEventGroupCreate(); 
-
     // Establish wifi connection 
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
-    ESP_LOGI(TAG, "Acknowledged Wifi connection."); 
+    ESP_LOGI(TAG, "Wifi connection established."); 
 
     // Start UDP server
-    xEventGroupWaitBits(s_startup_event_group, WIFI_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
     xTaskCreatePinnedToCore(udp_server_task, "udp server task", 4096, nullptr, 5, nullptr, 0); 
     ESP_LOGI(TAG, "Launched UDP server."); 
 
     // Start MPU reader 
-    xEventGroupWaitBits(s_startup_event_group, UDP_SERVER_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
     xTaskCreatePinnedToCore(mpu6050_task, "mpu6050 task", 4096, nullptr, 10, nullptr, 1); 
     ESP_LOGI(TAG, "Started MPU reader."); 
 
     // Start PID calculation
-    xEventGroupWaitBits(s_startup_event_group, MPU_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
     xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1);
     ESP_LOGI(TAG, "Enabled PID calculation."); 
 
     // Start DShot communication
-    xEventGroupWaitBits(s_startup_event_group, PID_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
-    xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1); 
+    xTaskCreatePinnedToCore(motor_task, "motor  task", 4096, nullptr, 10, nullptr, 1); 
     ESP_LOGI(TAG, "Established DShot communication."); 
 }

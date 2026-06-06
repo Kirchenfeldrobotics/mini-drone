@@ -131,6 +131,8 @@ void send_throttles(DShotMotor* motors[4], int throttles[4]) {
 }
         
 void motor_task(void *pvParameters) {
+    xEventGroupWaitBits(s_startup_event_group, PID_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
+
     PID data = {}; 
     int throttles[4] = {IDLE_THROTTLE, IDLE_THROTTLE, IDLE_THROTTLE, IDLE_THROTTLE};
     

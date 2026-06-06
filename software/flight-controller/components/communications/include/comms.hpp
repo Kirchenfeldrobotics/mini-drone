@@ -1,3 +1,5 @@
+#pragma once
+
 #include "freertos/semphr.h"
 #include "lwip/sockets.h"
 #include "lwip/netdb.h"
@@ -6,10 +8,10 @@
 #include <iostream>
 #include <thread>
 
-static SemaphoreHandle_t s_target_angles_mutex; 
-static TargetDroneAngles s_target_angles; 
+extern SemaphoreHandle_t s_target_angles_mutex; 
+extern TargetDroneAngles s_target_angles; 
 
-static std::atomic<int> s_target_base_throttle;  
+extern std::atomic<int> s_target_base_throttle;  
 
 struct __attribute__((packed)) ControlPacket {
     uint32_t magic; 
@@ -22,4 +24,4 @@ struct __attribute__((packed)) ControlPacket {
     uint8_t _padding; 
 }; 
 
-void udp_server_task(void *pvParameters)
+void udp_server_task(void *pvParameters); 

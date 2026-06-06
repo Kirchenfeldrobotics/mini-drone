@@ -1,4 +1,9 @@
-static QueueHandle_t s_pid_data_queue = nullptr; 
+#pragma once
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+
+extern QueueHandle_t s_pid_data_queue;
 
 struct TargetDroneAngles {
     float pitch, roll, yaw; 

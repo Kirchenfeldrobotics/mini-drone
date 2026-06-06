@@ -7,12 +7,18 @@
 #include <cstring>
 #include "flight_types.hpp"
 
+SemaphoreHandle_t    s_target_angles_mutex  = nullptr;
+TargetDroneAngles    s_target_angles        = {};
+std::atomic<int>     s_target_base_throttle{0};
+
 #define UDP_PORT 5555
 #define MAGIC    0x5E1FC9A3
 
-static const char* TAG = "UDP"; 
+static const char* TAG = "UDP";
 
 void udp_server_task(void *pvParameters) {
+    xEventGroupWaitBits(s_startup_event_group, WIFI_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
+    
     // Create socket 
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP); 
     if (sock < 0) { ESP_LOGE(TAG, "Failed to create socket: %d.", errno); vTaskDelete(NULL); }
@@ -35,8 +41,6 @@ void udp_server_task(void *pvParameters) {
     struct sockaddr_in sender_addr; 
     socklen_t sender_addr_len = sizeof(sender_addr); 
     uint32_t last_sequence = 0; 
-
-    bool motor_clearance = false; 
 
     xEventGroupSetBits(s_startup_event_group, UDP_SERVER_READY_BIT); 
     
