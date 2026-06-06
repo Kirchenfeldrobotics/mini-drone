@@ -10,8 +10,10 @@
 #include "mpu6050.hpp"
 #include "pid.hpp"
 #include "comms.hpp"
+#include "flight_types.hpp"
 
 static const char *TAG = "MAIN"; 
+
 
 // Init Non-Volatile storage
 void init_nvs() {
@@ -50,11 +52,25 @@ extern "C" void app_main(void) {
     if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to create default event loop: %e.", ret); 
     else ESP_LOGI(TAG, "Created default event loop."); 
 
+    // Create start-up event group: 
+    s_startup_event_group = xEventGroupCreate(); 
+
     // Establish wifi connection 
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD); 
 
+    // Start UDP server
+    xEventGroupWaitBits(s_startup_event_group, WIFI_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
+    xTaskCreatePinnedToCore(udp_server_task, "udp server task", 4096, nullptr, 5, nullptr, 0); 
 
-    // Read from MPU 
+    // Start MPU reader 
+    xEventGroupWaitBits(s_startup_event_group, UDP_SERVER_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
     xTaskCreatePinnedToCore(mpu6050_task, "mpu6050 task", 4096, nullptr, 10, nullptr, 1); 
 
+    // Start PID calculation
+    xEventGroupWaitBits(s_startup_event_group, MPU_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
+    xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1); 
+
+    // Start DShot communication
+    xEventGroupWaitBits(s_startup_event_group, PID_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
+    xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1); 
 }

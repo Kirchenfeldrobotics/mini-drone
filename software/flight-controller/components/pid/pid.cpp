@@ -7,6 +7,7 @@
 #include "comms.hpp"
 #include <iostream>
 #include <algorithm>
+#include "flight_types.hpp"
 
 #define KP 3.f
 #define KD 15.f
@@ -35,6 +36,8 @@ void pid_task(void *pvParameters) {
     ValuePair P = {};
     ValuePair D = {}; 
     ValuePair I = {}; 
+
+    xEventGroupSetBits(s_startup_event_group, PID_READY_BIT); 
 
     while (true) {
         if (xQueueReceive(s_mpu_data_queue, &data, pdMS_TO_TICKS(5)) == pdTRUE) {

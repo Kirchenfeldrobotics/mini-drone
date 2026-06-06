@@ -106,6 +106,8 @@ void wifi_init_sta(const char *ssid, const char *password) {
 
     vTaskDelete(blink_task_handle); 
     gpio_set_level(LED_PIN, 0); 
+
+    xEventGroupSetBits(s_startup_event_group, WIFI_READY_BIT); 
 }
 
 

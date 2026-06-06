@@ -5,6 +5,7 @@
 #include "esp_timer.h"
 #include "./include/mpu6050.hpp"
 #include "cmath"
+#include "flight_types.hpp"
 
 static const char* TAG = "MPU"; 
 
@@ -145,6 +146,8 @@ void mpu6050_task(void *pvParameters) {
 
     TickType_t last_wake_time = xTaskGetTickCount(); 
     const TickType_t period   = pdMS_TO_TICKS(1); 
+
+    xEventGroupSetBits(s_startup_event_group, MPU_READY_BIT); 
 
     while (true) {
         vTaskDelayUntil(&last_wake_time, period);  

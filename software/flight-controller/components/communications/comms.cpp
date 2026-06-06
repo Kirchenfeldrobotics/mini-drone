@@ -5,6 +5,7 @@
 #include "./include/comms.hpp" 
 #include <atomic>
 #include <cstring>
+#include "flight_types.hpp"
 
 #define UDP_PORT 5555
 #define MAGIC    0x5E1FC9A3
@@ -34,6 +35,10 @@ void udp_server_task(void *pvParameters) {
     struct sockaddr_in sender_addr; 
     socklen_t sender_addr_len = sizeof(sender_addr); 
     uint32_t last_sequence = 0; 
+
+    bool motor_clearance = false; 
+
+    xEventGroupSetBits(s_startup_event_group, UDP_SERVER_READY_BIT); 
     
     while (true) {
         int len = recvfrom(sock, &pkt, sizeof(pkt), 0, (struct sockaddr*)&sender_addr, &sender_addr_len); 
@@ -63,8 +68,9 @@ void udp_server_task(void *pvParameters) {
         s_target_angles.yaw   = pkt.target_yaw_rate; 
         xSemaphoreGive(s_target_angles_mutex); 
 
-        s_target_base_throttle.store(pkt.base_throttle); 
-
-        // Event handler --> start motor 
+        s_target_base_throttle.store(pkt.base_throttle);
+        
+        if (pkt.flags & 0x01) xEventGroupSetBits(s_startup_event_group, MOTOR_CLEARANCE_BIT); 
+        else xEventGroupClearBits(s_startup_event_group, MOTOR_CLEARANCE_BIT); 
     }   
 }

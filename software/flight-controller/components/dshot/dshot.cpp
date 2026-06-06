@@ -7,6 +7,7 @@
 #include "comms.hpp"
 #include <iostream>
 #include <algorithm> 
+#include "flight_types.hpp"
 
 #define DSHOT_RES_HZ   10000000
 #define T_BIT_TICKS    17
@@ -131,7 +132,7 @@ void send_throttles(DShotMotor* motors[4], int throttles[4]) {
         
 void motor_task(void *pvParameters) {
     PID data = {}; 
-    int throttles[4] = {IDLE_THROTTLE, IDLE_THROTTLE, IDLE_THROTTLE, IDLE_THROTTLE};; 
+    int throttles[4] = {IDLE_THROTTLE, IDLE_THROTTLE, IDLE_THROTTLE, IDLE_THROTTLE};
     
     DShotMotor m1, m2, m3, m4; 
     DShotMotor* motors[4] = {&m1, &m2, &m3, &m4}; 
@@ -145,19 +146,24 @@ void motor_task(void *pvParameters) {
         vTaskDelete(NULL); 
     }
 
+    xEventGroupSetBits(s_startup_event_group, DSHOT_READY_BIT);
+    xEventGroupWaitBits(s_startup_event_group, MOTOR_CLEARANCE_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
+
     // Arming
     for (int i = 0; i < 200; i++ ){
         send_all(motors, 0); 
         vTaskDelay(pdMS_TO_TICKS(2)); 
     }
-
-    // Event --> Motor start
     
     int base_throttle   = 0; 
     int target_throttle = IDLE_THROTTLE ; 
     int diff            = 0; 
 
+    xEventGroupSetBits(s_startup_event_group, MOTOR_ARMED_BIT); 
+
     while (true) {
+        xEventGroupWaitBits(s_startup_event_group, MOTOR_CLEARANCE_BIT | MOTOR_ARMED_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
+        
         if (xQueueReceive(s_pid_data_queue, &data, pdMS_TO_TICKS(5)) == pdTRUE) {
             // Read current target throttle
             target_throttle = std::clamp(s_target_base_throttle.load(), IDLE_THROTTLE, MAX_THROTTLE); 
@@ -176,6 +182,8 @@ void motor_task(void *pvParameters) {
 
             // Send throttle to motor
             send_throttles(motors, throttles); 
+
+            if (base_throttle >= IDLE_THROTTLE) xEventGroupSetBits(s_startup_event_group, MOTOR_READY_BIT); 
         } else {
             // Fall back if queue is empty
             send_throttles(motors, throttles); 
