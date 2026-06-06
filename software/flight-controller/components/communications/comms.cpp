@@ -7,8 +7,6 @@
 // DO NOT START 
 
 void udp_server_task(void *pvParameters) {
-    s_target_angels_mutex = xSemaphoreCreateMutex(); 
-
     while (true) {
         xSemaphoreTake(s_target_angels_mutex, portMAX_DELAY); 
         // Write to 's_target_angles' to update target angles

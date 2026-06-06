@@ -8,6 +8,8 @@
 #include "./include/wifi_credentials.hpp"  
 #include "utils.hpp"
 #include "mpu6050.hpp"
+#include "pid.hpp"
+#include "comms.hpp"
 
 static const char *TAG = "MAIN"; 
 
@@ -29,6 +31,11 @@ void init_nvs() {
 
 extern "C" void app_main(void) {
     esp_err_t ret; 
+
+    // Create queues & mutexes
+    s_mpu_data_queue = xQueueCreate(1, sizeof(DroneAngles)); 
+    s_pid_data_queue = xQueueCreate(1, sizeof(PID)); 
+    s_target_angles_mutex = xSemaphoreCreateMutex();
     
     // Init nvs
     init_nvs(); 
@@ -45,6 +52,7 @@ extern "C" void app_main(void) {
 
     // Establish wifi connection 
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD); 
+
 
     // Read from MPU 
     xTaskCreatePinnedToCore(mpu6050_task, "mpu6050 task", 4096, nullptr, 10, nullptr, 1); 

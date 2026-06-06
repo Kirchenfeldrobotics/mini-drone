@@ -20,9 +20,9 @@ static const char* TAG = "MPU";
 #define GYROSCOPE_FS           0x01         // 01 --> +- 500 deg/s
 #define ACCELEROMETER_FS       0x01         // 01 --> +- 4 g   
 
-#define GYRO_CONV              500/32768.f 
-#define ACCEL_CONV             4/32768.f 
-#define RAD_TO_DEG             180/M_PI
+#define GYRO_CONV              500.f / 32768.f 
+#define ACCEL_CONV             4.f / 32768.f 
+#define RAD_TO_DEG             180.f / M_PI
 
 #define LOG_DATA               true
 
@@ -83,11 +83,8 @@ esp_err_t mpu_read(MpuData *out) {
 
 // Init mpu 
 void init_mpu() {
-    esp_err_t ret; 
+    esp_err_t ret;  
 
-    // Create queue for com with attitude 
-    s_mpu_data_queue = xQueueCreate(1, sizeof(DroneAngles)); 
-    
     // bus config 
     i2c_master_bus_config_t bus_config = {}; 
     bus_config.i2c_port                     = I2C_NUM_0; 
@@ -112,22 +109,27 @@ void init_mpu() {
     // Read who am i register from mpu
     uint8_t who_am_i = 0; 
     ret = mpu_read_byte(MPU_WHO_AM_I_REG, &who_am_i); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to read single byte from mpu register : %d.", esp_err_to_name(ret)); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to read single byte from mpu register 0x75 : %d.", esp_err_to_name(ret)); 
     else ESP_LOGI(TAG, "Who am I = 0x%02X (expected: 0x68).", who_am_i); 
 
     // Wake up mpu 
     ret = mpu_write_byte(MPU_PWR_MGMT_1_REG, 0x00); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to write single byte to mpu register: %d.", esp_err_to_name(ret)); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to write single byte to mpu register 0x6B: %d.", esp_err_to_name(ret)); 
+    else ESP_LOGI(TAG, "MPU has been woken up."); 
+
+    // configure filter
+    ret = mpu_write_byte(0x1A, 0x03);
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to write single byte to mpu register 0x1A: %d.", esp_err_to_name(ret)); 
     else ESP_LOGI(TAG, "MPU has been woken up."); 
 
     // Configure gyroscope 
     ret = mpu_write_byte(MPU_GYROSCOPE_REG, GYROSCOPE_FS << 3);
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure gyroscope: %d.", esp_err_to_name(ret)); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure gyroscope 0x1B: %d.", esp_err_to_name(ret)); 
     else ESP_LOGI(TAG, "Gyroscope has been configured."); 
 
     // Configure accelerometer 
     ret = mpu_write_byte(MPU_ACCELEROMETER_REG, ACCELEROMETER_FS << 3); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure accelerometer: %d.", esp_err_to_name(ret)); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure accelerometer 0x1C: %d.", esp_err_to_name(ret)); 
     else ESP_LOGI(TAG, "Acceleometer has been configured."); 
 }
 
@@ -135,23 +137,24 @@ void mpu6050_task(void *pvParameters) {
     init_mpu(); 
 
     DroneAngles outData = {}; 
+    MpuData data; 
 
     uint64_t last_time = 0; 
     uint64_t now       = 0; 
     float delta_t      = 0; 
 
     TickType_t last_wake_time = xTaskGetTickCount(); 
-    const TickType_t period   = pdMS_TO_TICKS(100); 
+    const TickType_t period   = pdMS_TO_TICKS(1); 
 
     while (true) {
-        vTaskDelayUntil(&last_wake_time, period); 
-        
-        MpuData data; 
+        vTaskDelayUntil(&last_wake_time, period);  
         
         if (mpu_read(&data) == ESP_OK) {
             now = esp_timer_get_time(); 
             delta_t = (now - last_time) / 1.0e6f; 
-            last_time = now; 
+            if (last_time == 0) { last_time = now; continue; }
+            last_time = now;
+            
 
             float accel_pitch = atan2f(data.accel_x, sqrtf(data.accel_y * data.accel_y + data.accel_z * data.accel_z)) * RAD_TO_DEG; 
             float accel_roll = atan2f(data.accel_y, sqrtf(data.accel_x * data.accel_x + data.accel_z * data.accel_z)) * RAD_TO_DEG;   
@@ -161,10 +164,11 @@ void mpu6050_task(void *pvParameters) {
             outData.yaw = data.gyro_z;
             outData.delta_t = delta_t; 
             
-            xQueueSend(s_mpu_data_queue, &outData, 0);  
+            xQueueOverwrite(s_mpu_data_queue, &outData);  
 
         } else {
             ESP_LOGW(TAG, "MPU read failed."); 
+            continue; 
         }
     }
 }

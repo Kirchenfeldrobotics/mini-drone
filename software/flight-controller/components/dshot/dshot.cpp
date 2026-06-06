@@ -131,7 +131,7 @@ void send_throttles(DShotMotor* motors[4], int throttles[4]) {
         
 void motor_task(void *pvParameters) {
     PID data = {}; 
-    int throttles[4]; 
+    int throttles[4] = {IDLE_THROTTLE, IDLE_THROTTLE, IDLE_THROTTLE, IDLE_THROTTLE};; 
     
     DShotMotor m1, m2, m3, m4; 
     DShotMotor* motors[4] = {&m1, &m2, &m3, &m4}; 
@@ -160,13 +160,7 @@ void motor_task(void *pvParameters) {
     while (true) {
         if (xQueueReceive(s_pid_data_queue, &data, pdMS_TO_TICKS(5)) == pdTRUE) {
             // Read current target throttle
-            if (xSemaphoreTake(s_target_base_throttle_mutex, pdMS_TO_TICKS(5))  == pdTRUE) {
-                target_throttle = s_target_base_throttle; 
-                xSemaphoreGive(s_target_base_throttle_mutex); 
-            } else ESP_LOGW(TAG, "Failed to update base throttle (mutex not available)."); 
-            
-            
-            target_throttle = std::clamp(target_throttle, IDLE_THROTTLE, MAX_THROTTLE); 
+            target_throttle = std::clamp(s_target_base_throttle.load(), IDLE_THROTTLE, MAX_THROTTLE); 
             
             // Ramp base thorttle
             diff = target_throttle - base_throttle; 
