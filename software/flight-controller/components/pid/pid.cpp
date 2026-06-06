@@ -23,9 +23,11 @@ void pid_task(void *pvParameters) {
     ValuePair error      = {}; 
     ValuePair prev_error = {}; 
     
-    ValuePair P = {}; 
+    ValuePair P = {};
     ValuePair D = {}; 
     ValuePair I = {}; 
+
+    s_pid_data_queue = xQueueCreate(1, sizeof(PID)); 
 
     while (true) {
         if (xQueueReceive(s_mpu_data_queue, &data, portMAX_DELAY)) {
@@ -57,6 +59,8 @@ void pid_task(void *pvParameters) {
             outData.pitch = P.pitch + D.pitch + I.pitch; 
             outData.roll  = P.roll + D.roll + I.roll;
             outData.yaw   = P.yaw + D.yaw + I.yaw;
+
+            xQueueSend(s_pid_data_queue, &outData, 0); 
 
             prev_error = error; 
         }
