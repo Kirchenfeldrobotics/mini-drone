@@ -25,7 +25,7 @@ class ControlState:
         self.armed           = False   
         self.lock = asyncio.Lock()
     
-    async def update(self, pitch, roll, throttle, armed):
+    async def update(self, pitch, roll, yaw, throttle, armed):
         async with self.lock:
             self.target_pitch    = pitch
             self.target_roll     = roll
