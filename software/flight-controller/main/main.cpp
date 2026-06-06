@@ -66,15 +66,15 @@ extern "C" void app_main(void) {
     xTaskCreatePinnedToCore(udp_server_task, "udp server task", 4096, nullptr, 5, nullptr, 0); 
     ESP_LOGI(TAG, "Launched UDP server."); 
 
-    // Start MPU reader 
-    xTaskCreatePinnedToCore(mpu6050_task, "mpu6050 task", 4096, nullptr, 10, nullptr, 1); 
-    ESP_LOGI(TAG, "Started MPU reader."); 
+    // // Start MPU reader 
+    // xTaskCreatePinnedToCore(mpu6050_task, "mpu6050 task", 4096, nullptr, 10, nullptr, 1); 
+    // ESP_LOGI(TAG, "Started MPU reader."); 
 
-    // Start PID calculation
-    xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1);
-    ESP_LOGI(TAG, "Enabled PID calculation."); 
+    // // Start PID calculation
+    // xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1);
+    // ESP_LOGI(TAG, "Enabled PID calculation."); 
 
-    // Start DShot communication
-    xTaskCreatePinnedToCore(motor_task, "motor  task", 4096, nullptr, 10, nullptr, 1); 
-    ESP_LOGI(TAG, "Established DShot communication."); 
+    // // Start DShot communication
+    // xTaskCreatePinnedToCore(motor_task, "motor  task", 4096, nullptr, 10, nullptr, 1); 
+    // ESP_LOGI(TAG, "Established DShot communication."); 
 }

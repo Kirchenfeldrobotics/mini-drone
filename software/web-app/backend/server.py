@@ -20,22 +20,22 @@ class ControlState:
     def __init__(self):
         self.target_pitch    = 0.0     # deg
         self.target_roll     = 0.0     # "
-        self.target_yaw_rate = 0.0     # deg/s
+        self.target_yaw = 0.0     # deg/s
         self.base_throttle   = 0       # 0 to 2047
         self.armed           = False   
         self.lock = asyncio.Lock()
     
-    async def update(self, pitch, roll, yaw_rate, throttle, armed):
+    async def update(self, pitch, roll, throttle, armed):
         async with self.lock:
             self.target_pitch    = pitch
             self.target_roll     = roll
-            self.target_yaw_rate = yaw_rate
+            self.target_yaw      = yaw
             self.base_throttle   = throttle
             self.armed           = armed
     
     async def snapshot(self):
         async with self.lock:
-            return (self.target_pitch, self.target_roll, self.target_yaw_rate, self.base_throttle, self.armed)
+            return (self.target_pitch, self.target_roll, self.target_yaw, self.base_throttle, self.armed)
         
 state = ControlState()
 
@@ -51,7 +51,7 @@ async def udp_sender_loop():
     
     try:
         while True:
-            pitch, roll, yaw_rate, throttle, armed = await state.snapshot()
+            pitch, roll, yaw, throttle, armed = await state.snapshot()
             
             flags = 0x01 if armed else 0x00
             
@@ -61,7 +61,7 @@ async def udp_sender_loop():
                 sequence,
                 pitch,
                 roll,
-                yaw_rate,
+                yaw,
                 throttle,
                 flags,
                 0,                    
@@ -107,7 +107,7 @@ app.add_middleware(
 class ControlInput(BaseModel):
     target_pitch:    float = Field(ge=-30.0, le=30.0)
     target_roll:     float = Field(ge=-30.0, le=30.0)
-    target_yaw_rate: float = Field(ge=-180.0, le=180.0)
+    target_yaw: float = Field(ge=-180.0, le=180.0)
     base_throttle:   int   = Field(ge=0, le=2047)
     armed:           bool  = False
 
@@ -117,7 +117,7 @@ async def update_control(input: ControlInput):
     await state.update(
         input.target_pitch,
         input.target_roll,
-        input.target_yaw_rate,
+        input.target_yaw,
         input.base_throttle,
         input.armed,
     )
@@ -125,11 +125,11 @@ async def update_control(input: ControlInput):
 
 @app.get("/api/state")
 async def get_state():
-    pitch, roll, yaw_rate, throttle, armed = await state.snapshot()
+    pitch, roll, yaw, throttle, armed = await state.snapshot()
     return {
         "target_pitch": pitch,
         "target_roll": roll,
-        "target_yaw_rate": yaw_rate,
+        "target_yaw": yaw,
         "base_throttle": throttle,
         "armed": armed,
     }

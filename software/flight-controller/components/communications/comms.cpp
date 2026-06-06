@@ -7,6 +7,8 @@
 #include <cstring>
 #include "flight_types.hpp"
 
+#define DEBUG true
+
 SemaphoreHandle_t    s_target_angles_mutex  = nullptr;
 TargetDroneAngles    s_target_angles        = {};
 std::atomic<int>     s_target_base_throttle{0};
@@ -73,6 +75,20 @@ void udp_server_task(void *pvParameters) {
         xSemaphoreGive(s_target_angles_mutex); 
 
         s_target_base_throttle.store(pkt.base_throttle);
+
+#if DEBUG 
+        ESP_LOGI(TAG, "--Received data--\n"
+              "  pitch:    %.2f\n"
+              "  roll:     %.2f\n"
+              "  yaw rate: %.2f\n"
+              "  throttle: %d\n"
+              "  armed:    %s",
+         pkt.target_pitch_angle,
+         pkt.target_roll_angle,
+         pkt.target_yaw_rate,
+         pkt.base_throttle,
+         (pkt.flags & 0x01) ? "yes" : "no");
+#endif 
         
         if (pkt.flags & 0x01) xEventGroupSetBits(s_startup_event_group, MOTOR_CLEARANCE_BIT); 
         else xEventGroupClearBits(s_startup_event_group, MOTOR_CLEARANCE_BIT); 
