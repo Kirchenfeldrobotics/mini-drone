@@ -8,9 +8,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-ESP_IP        = ""
+ESP_IP        = "192.168.2.145"
 ESP_PORT      = 5555
-SEND_RATE_HZ  = 50
+SEND_RATE_HZ  = 0.5
 MAGIC         = 0x5E1FC9A3
 PACKET_FORMAT = "<IIfffhBB"
 PACKET_SIZE   = struct.calcsize(PACKET_FORMAT)
@@ -19,8 +19,8 @@ PACKET_SIZE   = struct.calcsize(PACKET_FORMAT)
 class ControlState:
     def __init__(self):
         self.target_pitch    = 0.0     # deg
-        self.target_roll     = 0.0     # "
-        self.target_yaw = 0.0     # deg/s
+        self.target_roll     = 0.0     # deg 
+        self.target_yaw      = 0.0     # deg/s
         self.base_throttle   = 0       # 0 to 2047
         self.armed           = False   
         self.lock = asyncio.Lock()
