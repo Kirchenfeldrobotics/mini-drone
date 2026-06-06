@@ -56,21 +56,26 @@ extern "C" void app_main(void) {
     s_startup_event_group = xEventGroupCreate(); 
 
     // Establish wifi connection 
-    wifi_init_sta(WIFI_SSID, WIFI_PASSWORD); 
+    wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
+    ESP_LOGI(TAG, "Acknowledged Wifi connection."); 
 
     // Start UDP server
     xEventGroupWaitBits(s_startup_event_group, WIFI_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
     xTaskCreatePinnedToCore(udp_server_task, "udp server task", 4096, nullptr, 5, nullptr, 0); 
+    ESP_LOGI(TAG, "Launched UDP server."); 
 
     // Start MPU reader 
     xEventGroupWaitBits(s_startup_event_group, UDP_SERVER_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
     xTaskCreatePinnedToCore(mpu6050_task, "mpu6050 task", 4096, nullptr, 10, nullptr, 1); 
+    ESP_LOGI(TAG, "Started MPU reader."); 
 
     // Start PID calculation
     xEventGroupWaitBits(s_startup_event_group, MPU_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
-    xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1); 
+    xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1);
+    ESP_LOGI(TAG, "Enabled PID calculation."); 
 
     // Start DShot communication
     xEventGroupWaitBits(s_startup_event_group, PID_READY_BIT, pdFALSE, pdTRUE, portMAX_DELAY); 
     xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1); 
+    ESP_LOGI(TAG, "Established DShot communication."); 
 }
