@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-ESP_IP        = "192.168.2.145"
+ESP_IP        = "192.168.2.101"
 ESP_PORT      = 5555
 SEND_RATE_HZ  = 0.5
 MAGIC         = 0x5E1FC9A3

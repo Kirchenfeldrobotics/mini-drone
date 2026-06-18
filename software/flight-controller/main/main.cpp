@@ -12,6 +12,7 @@
 #include "comms.hpp"
 #include "flight_types.hpp"
 #include "dshot.hpp"
+#include "analytics.hpp"
 
 static const char *TAG = "MAIN";
 
@@ -38,9 +39,10 @@ extern "C" void app_main(void) {
     esp_err_t ret; 
 
     // Create queues & mutexes
-    s_mpu_data_queue = xQueueCreate(1, sizeof(DroneAngles)); 
-    s_pid_data_queue = xQueueCreate(1, sizeof(PID)); 
-    s_target_angles_mutex = xSemaphoreCreateMutex();
+    s_mpu_data_queue       = xQueueCreate(1, sizeof(DroneAngles)); 
+    s_pid_data_queue       = xQueueCreate(1, sizeof(PID)); 
+    s_analytics_data_queue = xQueueCreate(1, sizeof(AnalyticsData)); 
+    s_target_angles_mutex  = xSemaphoreCreateMutex();
 
     // Create start-up event group: 
     s_startup_event_group = xEventGroupCreate(); 
@@ -66,13 +68,17 @@ extern "C" void app_main(void) {
     xTaskCreatePinnedToCore(udp_server_task, "udp server task", 4096, nullptr, 5, nullptr, 0); 
     ESP_LOGI(TAG, "Launched UDP server."); 
 
-    // // Start MPU reader 
-    // xTaskCreatePinnedToCore(mpu6050_task, "mpu6050 task", 4096, nullptr, 10, nullptr, 1); 
-    // ESP_LOGI(TAG, "Started MPU reader."); 
+    // Start analytics reader 
+    xTaskCreatePinnedToCore(analytics_task, "analytics task", 4096, nullptr, 5, nullptr, 0); 
+    ESP_LOGI(TAG, "Started recording battery voltage and esc current."); 
 
-    // // Start PID calculation
-    // xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1);
-    // ESP_LOGI(TAG, "Enabled PID calculation."); 
+    // Start MPU reader 
+    xTaskCreatePinnedToCore(mpu6050_task, "mpu6050 task", 4096, nullptr, 10, nullptr, 1); 
+    ESP_LOGI(TAG, "Started MPU reader."); 
+
+    // Start PID calculation
+    xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1);
+    ESP_LOGI(TAG, "Enabled PID calculation."); 
 
     // // Start DShot communication
     // xTaskCreatePinnedToCore(motor_task, "motor  task", 4096, nullptr, 10, nullptr, 1); 

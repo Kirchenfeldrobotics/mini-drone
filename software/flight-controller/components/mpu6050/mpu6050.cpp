@@ -9,8 +9,8 @@
 
 static const char* TAG = "MPU"; 
 
-#define I2C_SDA_PIN            GPIO_NUM_21
-#define I2C_SCL_PIN            GPIO_NUM_22
+#define I2C_SDA_PIN            GPIO_NUM_26
+#define I2C_SCL_PIN            GPIO_NUM_27
 #define MPU_ADDR               0x68
 #define MPU_CLK_SPEED          400000
 #define MPU_WHO_AM_I_REG       0x75 

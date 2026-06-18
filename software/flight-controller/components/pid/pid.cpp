@@ -9,6 +9,8 @@
 #include <algorithm>
 #include "flight_types.hpp"
 
+#define DEBUG true
+
 #define KP 3.f
 #define KD 15.f
 #define KI 0.1f
@@ -40,6 +42,8 @@ void pid_task(void *pvParameters) {
     ValuePair P = {};
     ValuePair D = {}; 
     ValuePair I = {}; 
+
+    int n = 0; 
 
     xEventGroupSetBits(s_startup_event_group, PID_READY_BIT); 
 
@@ -74,6 +78,19 @@ void pid_task(void *pvParameters) {
             outData.pitch = P.pitch + D.pitch + I.pitch; 
             outData.roll  = P.roll + D.roll + I.roll;
             outData.yaw   = P.yaw + D.yaw + I.yaw;
+
+            n++; 
+
+#if DEBUG
+            if (n % 1000 == 0)
+            ESP_LOGI(TAG, "--PID correction--\n"
+              "  pitch:    %.2f\n"
+              "  roll:     %.2f\n"
+              "  yaw rate: %.2f\n", 
+                outData.pitch,
+                outData.roll,
+                outData.yaw);
+#endif 
 
             xQueueOverwrite(s_pid_data_queue, &outData); 
 

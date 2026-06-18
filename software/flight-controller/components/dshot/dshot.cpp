@@ -15,10 +15,10 @@
 #define T0H_TICKS      7
 #define DSHOT_SYMBOLS 17
 
-#define M1_PIN GPIO_NUM_25 // front right 
-#define M2_PIN GPIO_NUM_26 // back left 
-#define M3_PIN GPIO_NUM_27 // front left 
-#define M4_PIN GPIO_NUM_28 // back right 
+#define M1_PIN GPIO_NUM_26 // front right 
+#define M2_PIN GPIO_NUM_27 // back left 
+#define M3_PIN GPIO_NUM_28 // front left 
+#define M4_PIN GPIO_NUM_29 // back right 
 
 static const char* TAG = "DSHOT"; 
 
