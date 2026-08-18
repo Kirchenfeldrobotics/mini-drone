@@ -13,6 +13,7 @@
 #include "flight_types.hpp"
 #include "dshot.hpp"
 #include "analytics.hpp"
+#include "log_server.hpp"
 
 static const char *TAG = "MAIN";
 
@@ -29,7 +30,7 @@ void init_nvs() {
         if (ret != ESP_OK) ESP_LOGE(TAG, "Erasing default nvs partition failed."); 
         ret = nvs_flash_init(); 
     }
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Error while initializing default nvs partition: %e.", ret); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Error while initializing default nvs partition: %s", esp_err_to_name(ret));
     else ESP_LOGI(TAG, "Initialized default nvs partition."); 
 }
 
@@ -41,8 +42,8 @@ extern "C" void app_main(void) {
     // Create queues & mutexes
     s_mpu_data_queue       = xQueueCreate(1, sizeof(DroneAngles)); 
     s_pid_data_queue       = xQueueCreate(1, sizeof(PID)); 
-    s_analytics_data_queue = xQueueCreate(1, sizeof(AnalyticsData)); 
     s_target_angles_mutex  = xSemaphoreCreateMutex();
+    s_analytics_mutex      = xSemaphoreCreateMutex(); 
 
     // Create start-up event group: 
     s_startup_event_group = xEventGroupCreate(); 
@@ -57,15 +58,18 @@ extern "C" void app_main(void) {
 
     // Create default event loop
     ret = esp_event_loop_create_default(); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to create default event loop: %e.", ret); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to create default event loop: %s", esp_err_to_name(ret));
     else ESP_LOGI(TAG, "Created default event loop."); 
 
     // Establish wifi connection 
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
     ESP_LOGI(TAG, "Wifi connection established."); 
 
+    // Start log server (debug only — streams ESP_LOG over UDP)
+    xTaskCreatePinnedToCore(log_server_task, "log server", 4096, nullptr, 3, nullptr, 0);
+
     // Start UDP server
-    xTaskCreatePinnedToCore(udp_server_task, "udp server task", 4096, nullptr, 5, nullptr, 0); 
+    xTaskCreatePinnedToCore(udp_server_task, "udp server task", 4096, nullptr, 5, nullptr, 0);
     ESP_LOGI(TAG, "Launched UDP server."); 
 
     // Start analytics reader 
@@ -80,7 +84,7 @@ extern "C" void app_main(void) {
     xTaskCreatePinnedToCore(pid_task, "pid task", 4096, nullptr, 10, nullptr, 1);
     ESP_LOGI(TAG, "Enabled PID calculation."); 
 
-    // // Start DShot communication
-    // xTaskCreatePinnedToCore(motor_task, "motor  task", 4096, nullptr, 10, nullptr, 1); 
-    // ESP_LOGI(TAG, "Established DShot communication."); 
+    //  Start DShot communication
+    xTaskCreatePinnedToCore(motor_task, "motor  task", 4096, nullptr, 10, nullptr, 1); 
+    ESP_LOGI(TAG, "Established DShot communication."); 
 }

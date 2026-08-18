@@ -5,23 +5,25 @@
 #include "mpu6050.hpp"
 #include "./include/pid.hpp"
 #include "comms.hpp"
+#include "analytics.hpp"
 #include <iostream>
 #include <algorithm>
 #include "flight_types.hpp"
 
-#define DEBUG true
+#define DEBUG false
 
-#define KP 3.f
-#define KD 15.f
-#define KI 0.1f
+#define KP 0.6f
+#define KD 3.f
+#define KI 0.02f
 
-#define KP_YAW 2.f 
+#define KP_YAW 0.4f 
 #define KD_YAW 0.f 
-#define KI_YAW 0.01f 
+#define KI_YAW 0.002f 
 
 #define I_LIMIT 50.f
 
 QueueHandle_t s_pid_data_queue = nullptr;
+AngleState s_angle_state       = {}; 
 
 static const char* TAG = "PID";
 
@@ -55,6 +57,13 @@ void pid_task(void *pvParameters) {
                 error.yaw   = data.yaw - s_target_angles.yaw; 
                 xSemaphoreGive(s_target_angles_mutex);
             } else ESP_LOGW(TAG, "Failed to update PID error: Couldn't take mutex."); 
+
+            if (xSemaphoreTake(s_analytics_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+                s_angle_state.pitch_angle = data.pitch; 
+                s_angle_state.roll_angle  = data.roll; 
+                s_angle_state.yaw_rate    = data.yaw; 
+                xSemaphoreGive(s_analytics_mutex); 
+            } else ESP_LOGW(TAG, "Failed to update angle state: Couldn't take mutex."); 
              
             if (data.delta_t <= 0) data.delta_t = 0.001f; 
             if (first) { prev_error = error; first = false; }

@@ -9,8 +9,8 @@
 
 static const char* TAG = "MPU"; 
 
-#define I2C_SDA_PIN            GPIO_NUM_26
-#define I2C_SCL_PIN            GPIO_NUM_27
+#define I2C_SDA_PIN            GPIO_NUM_21
+#define I2C_SCL_PIN            GPIO_NUM_22
 #define MPU_ADDR               0x68
 #define MPU_CLK_SPEED          400000
 #define MPU_WHO_AM_I_REG       0x75 
@@ -97,7 +97,7 @@ void init_mpu() {
     bus_config.glitch_ignore_cnt            = 7; 
     bus_config.flags.enable_internal_pullup = true; 
     ret = i2c_new_master_bus(&bus_config, &s_bus_handle); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure bus: %d.", esp_err_to_name(ret)); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure bus: %s", esp_err_to_name(ret));
     else ESP_LOGI(TAG, "Bus configured."); 
 
     // register mpu to bus 
@@ -106,33 +106,33 @@ void init_mpu() {
     dev_config.device_address  = MPU_ADDR; 
     dev_config.scl_speed_hz    = MPU_CLK_SPEED; 
     ret = i2c_master_bus_add_device(s_bus_handle, &dev_config, &s_mpu_handle); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to add mpu to bus: %d.", esp_err_to_name(ret)); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to add mpu to bus: %s", esp_err_to_name(ret));
     else ESP_LOGI(TAG, "Added mpu to bus."); 
 
     // Read who am i register from mpu
     uint8_t who_am_i = 0; 
     ret = mpu_read_byte(MPU_WHO_AM_I_REG, &who_am_i); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to read single byte from mpu register 0x75 : %d.", esp_err_to_name(ret)); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to read single byte from mpu register 0x75: %s", esp_err_to_name(ret));
     else ESP_LOGI(TAG, "Who am I = 0x%02X (expected: 0x68).", who_am_i); 
 
     // Wake up mpu 
     ret = mpu_write_byte(MPU_PWR_MGMT_1_REG, 0x00); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to write single byte to mpu register 0x6B: %d.", esp_err_to_name(ret)); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to write single byte to mpu register 0x6B: %s", esp_err_to_name(ret));
     else ESP_LOGI(TAG, "MPU has been woken up."); 
 
     // configure filter
     ret = mpu_write_byte(0x1A, 0x03);
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to write single byte to mpu register 0x1A: %d.", esp_err_to_name(ret)); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to write single byte to mpu register 0x1A: %s", esp_err_to_name(ret));
     else ESP_LOGI(TAG, "MPU has been woken up."); 
 
     // Configure gyroscope 
     ret = mpu_write_byte(MPU_GYROSCOPE_REG, GYROSCOPE_FS << 3);
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure gyroscope 0x1B: %d.", esp_err_to_name(ret)); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure gyroscope 0x1B: %s", esp_err_to_name(ret));
     else ESP_LOGI(TAG, "Gyroscope has been configured."); 
 
     // Configure accelerometer 
     ret = mpu_write_byte(MPU_ACCELEROMETER_REG, ACCELEROMETER_FS << 3); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure accelerometer 0x1C: %d.", esp_err_to_name(ret)); 
+    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure accelerometer 0x1C: %s", esp_err_to_name(ret));
     else ESP_LOGI(TAG, "Acceleometer has been configured."); 
 }
 

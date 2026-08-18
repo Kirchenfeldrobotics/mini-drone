@@ -6,6 +6,7 @@
 #include "esp_adc/adc_cali_scheme.h"
 #include "analytics.hpp"
 #include "flight_types.hpp"
+#include "comms.hpp"
 
 static const char* TAG = "Analytics"; 
 
@@ -37,11 +38,14 @@ static const LipoPoint LIPO_2S_HV_LUT[] = {
 }; 
 static const int LUT_SIZE = sizeof(LIPO_2S_HV_LUT) / sizeof(LIPO_2S_HV_LUT[0]);
 
-#define VBAT_GPIO_PIN ADC_CHANNEL_7 
-#define CURR_GPIO_PIN ADC_CHANNEL_6
+#define VBAT_GPIO_PIN ADC_CHANNEL_6 // gpio 34
+#define CURR_GPIO_PIN ADC_CHANNEL_7 // gpio 35
 #define ADC_ATTEN      ADC_ATTEN_DB_12
 #define VBAT_DEVIDER  4.3f 
 #define CURR_MV_PER_A 25.0f 
+
+AnalyticsData s_analytics_state = {};
+SemaphoreHandle_t s_analytics_mutex = nullptr;
 
 class EmaFilter {
 public: 
@@ -65,27 +69,35 @@ private:
     bool initalized_; 
 }; 
 
-void adc_init() {
-    esp_err_t ret; 
-    
-    // Configure adc unit
-    adc_oneshot_unit_init_cfg_t init_cfg; 
-    init_cfg.unit_id = ADC_UNIT_1; 
-    init_cfg.ulp_mode = ADC_ULP_MODE_DISABLE; 
-    ret = adc_oneshot_new_unit(&init_cfg, &adc_handle); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to initalize adc onshot unit: %d.", esp_err_to_name(ret)); 
-    else ESP_LOGI(TAG, "Initalized adc onshot unit."); 
+esp_err_t adc_init() {
+    esp_err_t ret;
 
-    // Configure channels
-    adc_oneshot_chan_cfg_t channel_cfg; 
-    channel_cfg.atten = ADC_ATTEN; 
-    channel_cfg.bitwidth = ADC_BITWIDTH_DEFAULT; 
-    ret = adc_oneshot_config_channel(adc_handle, VBAT_GPIO_PIN, &channel_cfg); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure VBAT adc channel: %d.", esp_err_to_name(ret)); 
-    else ESP_LOGI(TAG, "Configured VBAT adc channel."); 
-    ret = adc_oneshot_config_channel(adc_handle, CURR_GPIO_PIN, &channel_cfg); 
-    if (ret != ESP_OK) ESP_LOGE(TAG, "Failed to configure CURR adc channel: %d.", esp_err_to_name(ret)); 
-    else ESP_LOGI(TAG, "Configured CURR adc channel."); 
+    adc_oneshot_unit_init_cfg_t init_cfg = {};
+    init_cfg.unit_id = ADC_UNIT_1;
+    init_cfg.ulp_mode = ADC_ULP_MODE_DISABLE;
+    ret = adc_oneshot_new_unit(&init_cfg, &adc_handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initalize adc oneshot unit: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    ESP_LOGI(TAG, "Initalized adc oneshot unit.");
+
+    adc_oneshot_chan_cfg_t channel_cfg = {};
+    channel_cfg.atten = ADC_ATTEN;
+    channel_cfg.bitwidth = ADC_BITWIDTH_DEFAULT;
+    ret = adc_oneshot_config_channel(adc_handle, VBAT_GPIO_PIN, &channel_cfg);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to configure VBAT adc channel: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    ESP_LOGI(TAG, "Configured VBAT adc channel.");
+    ret = adc_oneshot_config_channel(adc_handle, CURR_GPIO_PIN, &channel_cfg);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to configure CURR adc channel: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    ESP_LOGI(TAG, "Configured CURR adc channel.");
+    return ESP_OK;
 }
 
 // Read raw adc values & caclulate volatage
@@ -113,7 +125,7 @@ uint8_t voltage_to_percentage(float voltage) {
 
     for (int i = 0; i < LUT_SIZE - 1; i++) {
         float v_high = LIPO_2S_HV_LUT[i].voltage; 
-        float v_low = LIPO_2S_HV_LUT[i].voltage; 
+        float v_low = LIPO_2S_HV_LUT[i + 1].voltage;
         if (voltage <= v_high && voltage > v_low) {
             uint8_t p_high = LIPO_2S_HV_LUT[i].percent; 
             uint8_t p_low = LIPO_2S_HV_LUT[i + 1].percent; 
@@ -125,9 +137,13 @@ uint8_t voltage_to_percentage(float voltage) {
 }
 
 void analytics_task(void *pvParameters) {
-    adc_init(); 
-    
-    EmaFilter vbat_filter(0.1f); 
+    if (adc_init() != ESP_OK) {
+        ESP_LOGE(TAG, "ADC init failed, analytics task will not run.");
+        vTaskDelete(nullptr);
+        return;
+    }
+
+    EmaFilter vbat_filter(0.1f);
     EmaFilter curr_filter(0.3f); 
 
     const TickType_t period = pdMS_TO_TICKS(10); 
@@ -148,14 +164,15 @@ void analytics_task(void *pvParameters) {
 
         // Calculate percentage 
         uint8_t percentage = voltage_to_percentage(vbat_filtered); 
-        AnalyticsData data = {}; 
-        data.vbat_volts = vbat_filtered; 
-        data.current_amps = curr_filtered; 
-        data.battery_percentage = percentage; 
-        data.low_percentage_warning = (vbat_filtered < 7.0f); 
-
-        // Send data
-        xQueueOverwrite(s_analytics_data_queue, &data); 
+        
+        // Write data
+        if (xSemaphoreTake(s_analytics_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+            s_analytics_state.vbat_volts = vbat_filtered; 
+            s_analytics_state.current_amps = curr_filtered; 
+            s_analytics_state.battery_percentage = percentage; 
+            s_analytics_state.low_percentage_warning = (vbat_filtered < 7.0f); 
+            xSemaphoreGive(s_analytics_mutex); 
+        } else ESP_LOGW(TAG, "Failed to update analytics state: Couldn't take mutex."); 
 
         vTaskDelayUntil(&last_wake, period); 
     }

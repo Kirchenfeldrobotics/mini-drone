@@ -24,4 +24,16 @@ struct __attribute__((packed)) ControlPacket {
     uint8_t _padding; 
 }; 
 
+struct __attribute__((packed)) AnalyticsPacket {
+    uint32_t magic; 
+    uint32_t sequence;   
+    float battery_voltage; 
+    uint8_t battery_percentage; 
+    float esc_amps; 
+    float pitch_angle; 
+    float roll_angle; 
+    float yaw_rate; 
+    uint8_t _padding[3];
+};  
+
 void udp_server_task(void *pvParameters); 
